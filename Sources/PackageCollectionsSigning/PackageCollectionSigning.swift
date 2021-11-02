@@ -95,7 +95,7 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
 
     private let observabilityScope: ObservabilityScope
 
-    public init(trustedRootCertsDir: URL? = nil, additionalTrustedRootCerts: [String]? = nil, observabilityScope: ObservabilityScope, callbackQueue: DispatchQueue) {
+    public init(trustedRootCertsDir: URL? = nil, additionalTrustedRootCerts: [String]? = nil, observabilityScope: ObservabilityScope = .silent, callbackQueue: DispatchQueue) {
         self.trustedRootCertsDir = trustedRootCertsDir
         self.additionalTrustedRootCerts = additionalTrustedRootCerts.map { $0.compactMap {
             guard let data = Data(base64Encoded: $0) else {
@@ -293,5 +293,11 @@ public enum PackageCollectionSigningError: Error, Equatable {
 private extension PackageCollectionModel.V1.Signature.Certificate.Name {
     init(from name: CertificateName) {
         self.init(userID: name.userID, commonName: name.commonName, organizationalUnit: name.organizationalUnit, organization: name.organization)
+    }
+}
+
+public extension ObservabilityScope {
+    static var silent: ObservabilityScope {
+        ObservabilitySystem { _, _ in }.topScope
     }
 }
