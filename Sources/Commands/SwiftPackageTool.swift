@@ -481,7 +481,35 @@ extension SwiftPackageTool {
 
         func run(_ swiftTool: SwiftTool) throws {
             let graph = try swiftTool.loadPackageGraph()
-            dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: format)
+            guard let rootPackage = graph.rootPackages.first else { return }
+
+            let regularTargets = rootPackage.targets.filter { $0.type != .test }
+            let regularDependencies = regularTargets.reduce([]) { $0 + $1.dependencies }
+            let regularDependenciesProducts = Set(regularDependencies.compactMap(\.product?.name))
+
+            let testFreeDependencies = rootPackage.dependencies.filter { dep in
+                // keep only if referenced by a regular target, i.e. if any of its
+                // products are in the set of products referenced by regular targets
+                let productNames = Set(dep.products.map { prod in prod.name })
+                let referencedByRegularTarget = !productNames
+                    .isDisjoint(with: regularDependenciesProducts)
+                return referencedByRegularTarget
+            }
+
+            // dumpDependenciesOf requires a single top level ResolvedPackage as input
+            // we need to construct a new one with the filtered dependencies injected
+            // This would be cleaner, if there was an overload that accepted
+            // [ResolvedPackage] (i.e. an array) instead, because all that
+            // dumpDependenciesOf really cares about is that array. I.e. it only operates
+            // on package.dependencies, not any of the other properties.
+            let testFree: ResolvedPackage = .init(
+                package: rootPackage.underlyingPackage,  // ignored
+                dependencies: testFreeDependencies,
+                targets: rootPackage.targets,            // ignored
+                products: rootPackage.products           // ignored
+            )
+
+            dumpDependenciesOf(rootPackage: testFree, mode: format)
         }
     }
     
